@@ -5,16 +5,12 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm install -g pnpm
-RUN pnpm install
+RUN npm install
 
 # Builder - Construye la aplicacion
 FROM node:21-alpine3.19 as build
 
 WORKDIR /usr/src/app
-
-# Instalar pnpm en la etapa build
-RUN npm install -g pnpm
 
 # Copiar de deps, los modulos de node
 COPY --from=deps /usr/src/app/node_modules ./node_modules
@@ -28,23 +24,22 @@ COPY . .
 RUN npx prisma generate
 
 # Creamos el build
-RUN pnpm build
+RUN npm run build
 
-# Instala solo dependencias de producción usando pnpm
-RUN pnpm install --prod && pnpm store prune
+# Instala solo dependencias de producción usando npm
+RUN npm install --omit=dev && npm cache clean --force
 
 # Crear la imagen final de Docker
 FROM node:21-alpine3.19 as prod
 
 WORKDIR /usr/src/app
 
-# Instalar pnpm en la etapa build
-RUN npm install -g pnpm
-
 COPY --from=build /usr/src/app/node_modules ./node_modules
+COPY --from=build /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 
 # Copiar la carpeta de distribucion
 COPY --from=build /usr/src/app/dist ./dist
+COPY --from=build /usr/src/app/prisma ./prisma
 
 ENV NODE_ENV=production
 
